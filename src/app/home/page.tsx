@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, LucideMapPin, Plane, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut, LucideMapPin, Plane, Search, Trash2 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import { useTrips, useCreateTrip } from "@/api/trip/queries/trip-queries";
 import { deleteTrip } from "@/api/trip/service/trip-services";
@@ -19,6 +19,8 @@ export default function HomePage() {
   const [searchText, setSearchText] = useState("");
   const [tripToDelete, setTripToDelete] = useState<string | null>(null);
   const [showNewTripModal, setShowNewTripModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const limit = 9;
 
   const token = session?.user?.accessToken || null;
 
@@ -32,13 +34,13 @@ export default function HomePage() {
     }
   }, [status, session, router]);
 
-  const { data, isLoading } = useTrips(userId, token, searchText);
+  const { data, isLoading } = useTrips(userId, token, searchText, page, limit);
 
   const deleteMutation = useMutation({
     mutationFn: (tripId: string) => deleteTrip(tripId, token!),
     onSuccess: () => {
       setTripToDelete(null);
-      queryClient.invalidateQueries({ queryKey: ["trips", userId, searchText] });
+      queryClient.invalidateQueries({ queryKey: ["trips", userId, searchText, page, limit] });
     },
   });
 
@@ -47,7 +49,7 @@ export default function HomePage() {
   const handleCreateTrip = async (tripData: any) => {
     await createTripMutation.mutateAsync(tripData);
     setShowNewTripModal(false);
-    queryClient.invalidateQueries({ queryKey: ["trips", userId, searchText] });
+    queryClient.invalidateQueries({ queryKey: ["trips", userId, searchText, page, limit] });
   };
 
   const toggleExpanded = (tripId: string) => {
@@ -73,7 +75,6 @@ export default function HomePage() {
         </button>
       </header>
 
-      {/* Campo de busca + botão nova viagem */}
       <section className="px-6 pt-4 flex items-center justify-between">
         <div className="flex items-center bg-white rounded-md px-3 py-2 shadow-sm w-full max-w-md">
           <Search className="w-4 h-4 text-gray-500 mr-2" />
@@ -93,12 +94,11 @@ export default function HomePage() {
         </button>
       </section>
 
-      {/* Cards */}
       <section className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {isLoading ? (
           <p>Carregando...</p>
         ) : (
-          data?.trips.map((trip: any) => {
+          data?.trips?.map((trip: any) => {
             const isExpanded = expandedTrips[trip.id];
             const shouldShowToggle = trip.destinations.length > 2;
             const destinationsToShow = isExpanded
@@ -106,9 +106,16 @@ export default function HomePage() {
               : trip.destinations.slice(0, 2);
 
             return (
-              <div key={trip.id} className="bg-white rounded-xl shadow-md p-6 relative">
+              <div
+                key={trip.id}
+                onClick={() => router.push(`/trip-management/${trip.id}`)}
+                className="cursor-pointer bg-white rounded-xl shadow-md p-6 relative hover:shadow-lg transition"
+              >
                 <button
-                  onClick={() => setTripToDelete(trip.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTripToDelete(trip.id);
+                  }}
                   className="absolute top-3 right-3 text-red-600 hover:text-red-800"
                 >
                   <Trash2 size={16} />
@@ -125,12 +132,12 @@ export default function HomePage() {
                     <div key={dest.id} className="text-gray-600 text-sm">
                       <div className="flex items-center gap-1">
                         <LucideMapPin size={14} className="text-gray-600 flex-shrink-0" />
-                        <span>{dest.city}, {dest.country}</span>
+                        <span>
+                          {dest.city}, {dest.country}
+                        </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1 ml-5">
-                        De: {new Date(dest.startDate).toLocaleDateString("pt-BR")}
-                        {" - "}
-                        Até: {new Date(dest.endDate).toLocaleDateString("pt-BR")}
+                        De: {new Date(dest.startDate).toLocaleDateString("pt-BR")} - Até: {new Date(dest.endDate).toLocaleDateString("pt-BR")}
                       </p>
                     </div>
                   ))}
@@ -138,7 +145,10 @@ export default function HomePage() {
 
                 {shouldShowToggle && (
                   <button
-                    onClick={() => toggleExpanded(trip.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpanded(trip.id);
+                    }}
                     className="text-indigo-600 hover:underline text-xs mt-2 ml-1"
                   >
                     {isExpanded ? "Ver menos" : "Ver mais"}
@@ -150,7 +160,30 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* Modal de confirmação */}
+      {data?.pagination && (
+        <div className="flex justify-center items-center gap-2 pb-8 mt-4">
+          <button
+            onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+            disabled={page === 1}
+            className="p-2 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={20} className="text-gray-600" />
+          </button>
+
+          <span className="text-sm font-medium text-gray-700">
+            {page} de {data.pagination.totalPages}
+          </span>
+
+          <button
+            onClick={() => setPage((prev) => Math.min(prev + 1, data.pagination.totalPages))}
+            disabled={page === data.pagination.totalPages}
+            className="p-2 rounded-lg hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronRight size={20} className="text-gray-600" />
+          </button>
+        </div>
+      )}
+
       {tripToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4">
@@ -173,7 +206,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Modal de nova viagem */}
       {showNewTripModal && (
         <NewTripModal
           userId={userId!}
