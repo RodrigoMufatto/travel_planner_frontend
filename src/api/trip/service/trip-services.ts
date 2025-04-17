@@ -3,12 +3,14 @@ import api from "@/api/api";
 export const getTripsByUserId = async (
   userId: string,
   token: string,
-  title: string = ""
+  title: string = "",
+  page: number = 1,
+  limit: number = 9
 ) => {
   const response = await api.get(`/trip/list/${userId}`, {
     params: {
-      page: 1,
-      limit: 9,
+      page,
+      limit,
       title,
     },
     headers: {
@@ -34,5 +36,14 @@ export const createTrip = async (tripData: any, token: string) => {
     },
   });
 
+  return response.data;
+};
+
+export const getTripById = async (tripId: string, token: string) => {
+  const response = await api.get(`/trip/${tripId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
   return response.data;
 };
