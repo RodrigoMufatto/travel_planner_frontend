@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Plus, Trash2, MapPin, Calendar } from "lucide-react";
+import { loadGoogleMapsApi } from "@/utils/load-google";
+import { useGooglePlacesAutocomplete } from "@/hooks/use-google-autocomplete";
 
-export default function NewTripModal({ userId, onClose, onSubmit }: {
+export default function NewTripModal({
+  userId,
+  onClose,
+  onSubmit,
+}: {
   userId: string;
   onClose: () => void;
   onSubmit: (tripData: any) => void;
@@ -18,30 +24,29 @@ export default function NewTripModal({ userId, onClose, onSubmit }: {
       country: "",
       latitude: "",
       longitude: "",
-      placeId: ""
-    }
+      placeId: "",
+    },
   ]);
 
-  const addDestination = () => {
-    setDestinations([
-      ...destinations,
-      {
-        city: "",
-        startDate: "",
-        endDate: "",
-        state: "",
-        country: "",
-        latitude: "",
-        longitude: "",
-        placeId: ""
-      }
-    ]);
-  };
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeCityQuery, setActiveCityQuery] = useState<string>("");
+  const { results } = useGooglePlacesAutocomplete(activeCityQuery);
+  const dropdownRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const removeDestination = (index: number) => {
-    const updated = destinations.filter((_, i) => i !== index);
-    setDestinations(updated);
-  };
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        activeIndex !== null &&
+        dropdownRefs.current[activeIndex] &&
+        !dropdownRefs.current[activeIndex]?.contains(event.target as Node)
+      ) {
+        setActiveIndex(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [activeIndex]);
 
   const handleDestinationChange = (
     index: number,
@@ -51,12 +56,70 @@ export default function NewTripModal({ userId, onClose, onSubmit }: {
     const updated = [...destinations];
     updated[index][field] = value;
     setDestinations(updated);
+
+    if (field === "city") {
+      setActiveIndex(index);
+      setActiveCityQuery(value);
+    }
+  };
+
+  const handleSelectCity = async (index: number, placeId: string, description: string) => {
+    const map = document.createElement("div");
+    await loadGoogleMapsApi();
+
+    const service = new google.maps.places.PlacesService(map);
+    service.getDetails(
+      {
+        placeId,
+        fields: ["address_components", "geometry"],
+      },
+      (place, status) => {
+        if (status !== google.maps.places.PlacesServiceStatus.OK || !place) return;
+
+        const getComponent = (type: string) =>
+          place.address_components?.find((comp) => comp.types.includes(type))?.long_name || "";
+
+        const updated = [...destinations];
+        updated[index] = {
+          city: getComponent("locality") || getComponent("administrative_area_level_2") || description,
+          state: getComponent("administrative_area_level_1"),
+          country: getComponent("country"),
+          latitude: place.geometry?.location?.lat().toString() || "",
+          longitude: place.geometry?.location?.lng().toString() || "",
+          placeId,
+          startDate: updated[index].startDate,
+          endDate: updated[index].endDate,
+        };
+        setDestinations(updated);
+        setActiveIndex(null);
+      }
+    );
+  };
+
+  const addDestination = () => {
+    setDestinations((prev) => [
+      ...prev,
+      {
+        city: "",
+        startDate: "",
+        endDate: "",
+        state: "",
+        country: "",
+        latitude: "",
+        longitude: "",
+        placeId: "",
+      },
+    ]);
+  };
+
+  const removeDestination = (index: number) => {
+    setDestinations((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleCreate = () => {
-    const isValid = title.trim() && destinations.every(dest => 
-      dest.city.trim() && dest.startDate && dest.endDate
-    );
+    const isValid =
+      title.trim() &&
+      destinations.every((dest) => dest.city.trim() && dest.startDate && dest.endDate);
 
     if (!isValid) {
       alert("Preencha todos os campos obrigatórios antes de continuar.");
@@ -66,7 +129,7 @@ export default function NewTripModal({ userId, onClose, onSubmit }: {
     const tripData = {
       title,
       userTrips: { userId },
-      destination: destinations.map(dest => ({
+      destination: destinations.map((dest) => ({
         city: dest.city,
         startDate: new Date(dest.startDate).toISOString(),
         endDate: new Date(dest.endDate).toISOString(),
@@ -77,13 +140,17 @@ export default function NewTripModal({ userId, onClose, onSubmit }: {
         placeId: dest.placeId,
       })),
     };
+
     onSubmit(tripData);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+        >
           <X size={18} />
         </button>
 
@@ -102,8 +169,13 @@ export default function NewTripModal({ userId, onClose, onSubmit }: {
         <div className="space-y-4 bg-gray-50 p-4 rounded-md mb-6 text-gray-400">
           {destinations.map((dest, index) => (
             <div key={index} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <label className="flex flex-1 items-center gap-2 text-sm">
+              <div
+                className="flex items-center gap-2 relative"
+                ref={(el) => {
+                  dropdownRefs.current[index] = el;
+                }}
+              >
+                <label className="flex flex-1 items-center gap-2 text-sm relative">
                   <MapPin size={14} />
                   <input
                     type="text"
@@ -111,7 +183,24 @@ export default function NewTripModal({ userId, onClose, onSubmit }: {
                     value={dest.city}
                     onChange={(e) => handleDestinationChange(index, "city", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none"
+                    onFocus={() => {
+                      setActiveIndex(index);
+                      setActiveCityQuery(dest.city);
+                    }}
                   />
+                  {activeIndex === index && results.length > 0 && dest.city.length > 1 && (
+                    <div className="absolute top-full left-6 right-0 bg-white border rounded-md shadow-md mt-1 z-50 max-h-48 overflow-y-auto text-gray-700">
+                      {results.map((suggestion, i) => (
+                        <button
+                          key={suggestion.placeId + i}
+                          onClick={() => handleSelectCity(index, suggestion.placeId, suggestion.description)}
+                          className="block w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
+                        >
+                          {suggestion.description}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </label>
 
                 {destinations.length > 1 && (
