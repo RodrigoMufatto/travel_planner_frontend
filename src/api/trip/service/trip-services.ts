@@ -47,3 +47,27 @@ export const getTripById = async (tripId: string, token: string) => {
   });
   return response.data;
 };
+
+export const createActivity = async (activityData: any, token: string) => {
+  const response = await api.post("/activity/create", activityData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
+
+export const getActivitiesByDestinationId = async (
+  destinationId: string,
+  token: string,
+  page: number = 1,
+  limit: number = 9
+) => {
+  const response = await api.get(`/activity/list/${destinationId}`, {
+    params: { page, limit },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
