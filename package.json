@@ -13,6 +13,8 @@
     "@tanstack/react-query": "^5.71.1",
     "@tanstack/react-query-devtools": "^5.71.1",
     "axios": "^1.8.4",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.485.0",
     "next": "15.2.4",
