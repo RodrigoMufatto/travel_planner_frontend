@@ -1,4 +1,3 @@
-
 import { Loader } from "@googlemaps/js-api-loader";
 
 let isLoaded = false;
