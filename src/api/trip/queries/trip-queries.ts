@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createTrip, getTripsByUserId } from "../service/trip-services";
+import { createActivity, createTrip, getActivitiesByDestinationId, getTripsByUserId } from "../service/trip-services";
 
 export const useTrips = (
   userId: string | null,
@@ -35,5 +35,24 @@ export const useTripById = (tripId: string | null, token: string | null) => {
     queryKey: ["trip", tripId],
     queryFn: () => getTripById(tripId!, token!),
     enabled: !!tripId && !!token,
+  });
+};
+
+export const useCreateActivity = (token: string) => {
+  return useMutation({
+    mutationFn: (activityData: any) => createActivity(activityData, token),
+  });
+};
+
+export const useActivitiesByDestination = (
+  destinationId: string | null,
+  token: string | null,
+  page: number = 1,
+  limit: number = 9
+) => {
+  return useQuery({
+    queryKey: ["activities-by-destination", destinationId, page],
+    queryFn: () => getActivitiesByDestinationId(destinationId!, token!, page, limit),
+    enabled: !!destinationId && !!token,
   });
 };
