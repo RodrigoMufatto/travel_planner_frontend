@@ -20,8 +20,11 @@ import {
   ChevronRight,
 } from "lucide-react";
 import NewActivityModal from "@/components/new-activity-modal";
+import HotelSearchModal from "@/components/hotel-search-modal";
+import RestaurantSearchModal from "@/components/restaurant-search-modal";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
+import FlightSearchModal from "@/components/flight-search-modal ";
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("pt-BR", {
@@ -37,6 +40,9 @@ export default function TripManagementPage() {
   const createActivityMutation = useCreateActivity(token || "");
   const [selectedTab, setSelectedTab] = useState(0);
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [showHotelModal, setShowHotelModal] = useState(false);
+  const [showRestaurantModal, setShowRestaurantModal] = useState(false);
+  const [showFlightModal, setShowFlightModal] = useState(false);
   const [page, setPage] = useState(1);
 
   const queryClient = useQueryClient();
@@ -168,18 +174,26 @@ export default function TripManagementPage() {
           </div>
 
           <div className="space-y-4">
-            {[
-              { icon: PlaneTakeoff, label: "Voos" },
-              { icon: Hotel, label: "Hotéis" },
-              { icon: Utensils, label: "Restaurantes" },
-            ].map(({ icon: Icon, label }) => (
+            {[{
+              icon: PlaneTakeoff,
+              label: "Voos",
+              action: () => setShowFlightModal(true),
+            }, {
+              icon: Hotel,
+              label: "Hotéis",
+              action: () => setShowHotelModal(true),
+            }, {
+              icon: Utensils,
+              label: "Restaurantes",
+              action: () => setShowRestaurantModal(true),
+            }].map(({ icon: Icon, label, action }) => (
               <div key={label} className="bg-white p-4 rounded-xl shadow">
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-2">
                     <Icon size={16} className="text-indigo-600" />
                     <h3 className="text-sm font-medium text-gray-900">{label}</h3>
                   </div>
-                  <button className="text-xs text-indigo-600 hover:underline flex items-center gap-1">
+                  <button className="text-xs text-indigo-600 hover:underline flex items-center gap-1" onClick={action}>
                     <Plus size={14} /> Add {label.toLowerCase()}
                   </button>
                 </div>
@@ -191,6 +205,32 @@ export default function TripManagementPage() {
           </div>
         </div>
       </div>
+
+      <HotelSearchModal
+        isOpen={showHotelModal}
+        onClose={() => setShowHotelModal(false)}
+        destination={selectedDestination}
+        onSelectHotel={(hotel) => {
+          console.log("Hotel selecionado:", hotel);
+        }}
+      />
+
+      <RestaurantSearchModal
+        isOpen={showRestaurantModal}
+        onClose={() => setShowRestaurantModal(false)}
+        destination={selectedDestination}
+        onSelectRestaurant={(restaurant) => {
+          console.log("Restaurante selecionado:", restaurant);
+        }}
+      />
+
+      <FlightSearchModal
+        isOpen={showFlightModal}
+        onClose={() => setShowFlightModal(false)}
+        onSelectFlight={(flight) => {
+          console.log("Voo selecionado:", flight);
+        }}
+      />
 
       {showActivityModal && (
         <NewActivityModal
