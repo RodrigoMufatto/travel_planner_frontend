@@ -14,13 +14,18 @@ import {
 interface Flight {
   id: string;
   airline: string;
+  airlineName?: string;
   price: number;
   origin: string;
   destination: string;
   departure: string;
   arrival: string;
   stops: number;
-  segments: { departure: { iataCode: string }; arrival: { iataCode: string } }[];
+  segments: {
+    carrierCode: string;
+    departure: { iataCode: string; at: string };
+    arrival: { iataCode: string; at: string };
+  }[];
 }
 
 interface FlightSearchModalProps {
@@ -213,7 +218,10 @@ export default function FlightSearchModal({
                   <button
                     key={flight.id}
                     onClick={() => {
-                      onSelectFlight(flight);
+                      onSelectFlight({
+                        ...flight,
+                        airlineName: carriers[flight.airline] || flight.airline,
+                      });
                       onClose();
                     }}
                     className="border rounded-xl p-4 text-left hover:bg-gray-50 transition"
