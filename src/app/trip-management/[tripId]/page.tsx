@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import {
   useCreateActivity,
   useTripById,
   useActivitiesByDestination,
+  useCreateHotel,
 } from "@/api/trip/queries/trip-queries";
 import {
   Calendar,
@@ -38,6 +39,7 @@ export default function TripManagementPage() {
   const { data: session } = useSession();
   const token = session?.user?.accessToken;
   const createActivityMutation = useCreateActivity(token || "");
+  const createHotelMutation = useCreateHotel(token || "");
   const [selectedTab, setSelectedTab] = useState(0);
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showHotelModal, setShowHotelModal] = useState(false);
@@ -210,10 +212,56 @@ export default function TripManagementPage() {
         isOpen={showHotelModal}
         onClose={() => setShowHotelModal(false)}
         destination={selectedDestination}
-        onSelectHotel={(hotel) => {
-          console.log("Hotel selecionado:", hotel);
+        onSelectHotel={async (hotel) => {
+          try {
+            const mapDiv = document.createElement("div");
+            const service = new google.maps.places.PlacesService(mapDiv);
+        
+            service.getDetails({ placeId: hotel.place_id }, async (details, status) => {
+              if (status !== google.maps.places.PlacesServiceStatus.OK || !details) {
+                console.error("Error retrieving hotel details");
+                return;
+              }
+        
+              const components = details.address_components || [];
+        
+              const getComponent = (type: string) =>
+                components.find((c) => c.types.includes(type))?.long_name || "";
+        
+              const street = getComponent("route") || hotel.name;
+              const number = getComponent("street_number");
+              const neighborhood =
+                getComponent("sublocality") ||
+                getComponent("sublocality_level_1") ||
+                getComponent("neighborhood");
+              const state =
+                getComponent("administrative_area_level_1") || selectedDestination.state || "";
+              const zipcode = getComponent("postal_code");
+        
+              const payload = {
+                destinationId: selectedDestination.id,
+                name: hotel.name,
+                rating: hotel.rating?.toString() || "",
+                address: {
+                  city: selectedDestination.city,
+                  state,
+                  country: selectedDestination.country,
+                  number,
+                  neighborhood,
+                  street,
+                  zipcode,
+                },
+              };
+        
+              await createHotelMutation.mutateAsync(payload);
+              setShowHotelModal(false);
+            });
+          } catch (err) {
+            console.error("Error saving hotel:", err);
+          }
         }}
       />
+
 
       <RestaurantSearchModal
         isOpen={showRestaurantModal}
@@ -271,7 +319,7 @@ export default function TripManagementPage() {
               });
               setShowActivityModal(false);
             } catch (err) {
-              console.error("Erro ao criar atividade:", err);
+              console.error("Error creating activity:", err);
             }
           }}
           initialLat={parseFloat(trip.destinations[selectedTab].latitude)}
