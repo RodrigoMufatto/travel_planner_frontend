@@ -71,3 +71,12 @@ export const getActivitiesByDestinationId = async (
   });
   return response.data;
 };
+
+export const createHotel = async (hotelData: any, token: string) => {
+  const response = await api.post("/hotel/create", hotelData, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
+};
